@@ -1,0 +1,18 @@
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "nommo_slicer"
+version = "0.1.0"
+description = "NOMMO Slicing Library - Standalone slicing from Bambu Studio"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+nommo-slicer = "nommo_slicer.cli.main:main"
+
+[tool.scikit-build]
+cmake.version = ">=3.15"
+cmake.args = []
+sdist.include = ["src/*", "CMakeLists.txt", "version.inc", "nommo_slicer/*"]
