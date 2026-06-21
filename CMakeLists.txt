@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-project(nommo_slicer VERSION 0.1.0 LANGUAGES CXX)
+project(nommo_slicer VERSION 0.1.1 LANGUAGES CXX)
 
 # CMP0167: keep FindBoost module
 if(POLICY CMP0167)
