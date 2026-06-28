@@ -2400,6 +2400,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                 }
                 ModelInstance* inst =  obj->instances[inst_index];
                 inst->loaded_id = map_it->second.second;
+                current_plate_data->objects_and_instances.emplace_back(obj_index, inst_index);
                 map_it++;
             }
         }

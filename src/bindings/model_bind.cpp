@@ -38,10 +38,22 @@ void init_model_bind(py::module &m) {
 
     // ── ModelInstance ─────────────────────────────────────────────────────
     py::class_<ModelInstance>(m, "ModelInstance")
-        .def("get_offset", [](ModelInstance &self) -> const Vec3d& { return self.get_offset(); }, py::return_value_policy::reference)
-        .def("get_rotation", [](ModelInstance &self) -> const Vec3d& { return self.get_rotation(); }, py::return_value_policy::reference)
-        .def("get_scaling_factor", [](ModelInstance &self) -> const Vec3d& { return self.get_scaling_factor(); }, py::return_value_policy::reference)
-        .def("get_mirror", [](ModelInstance &self) -> const Vec3d& { return self.get_mirror(); }, py::return_value_policy::reference)
+        .def("get_offset", [](ModelInstance &self) {
+            const Vec3d &o = self.get_offset();
+            return std::make_tuple(o.x(), o.y(), o.z());
+        })
+        .def("get_rotation", [](ModelInstance &self) {
+            const Vec3d &o = self.get_rotation();
+            return std::make_tuple(o.x(), o.y(), o.z());
+        })
+        .def("get_scaling_factor", [](ModelInstance &self) {
+            const Vec3d &o = self.get_scaling_factor();
+            return std::make_tuple(o.x(), o.y(), o.z());
+        })
+        .def("get_mirror", [](ModelInstance &self) {
+            const Vec3d &o = self.get_mirror();
+            return std::make_tuple(o.x(), o.y(), o.z());
+        })
         .def("id", &ModelInstance::id);
 
     // ── ModelVolume ───────────────────────────────────────────────────────
@@ -76,6 +88,7 @@ void init_model_bind(py::module &m) {
         .def_readonly("slice_filaments_info", &PlateData::slice_filaments_info)
         .def_readonly("warnings", &PlateData::warnings)
         .def_readonly("locked", &PlateData::locked)
+        .def_readonly("objects_and_instances", &PlateData::objects_and_instances)
         .def("get_gcode_prediction_str", &PlateData::get_gcode_prediction_str)
         .def("get_gcode_weight_str", &PlateData::get_gcode_weight_str);
 
@@ -122,6 +135,43 @@ void init_model_bind(py::module &m) {
                 version
             );
         }, "Load a Bambu Studio .3mf file. Returns (Model, DynamicPrintConfig, plates, presets, is_bbl, version)")
+        .def_property("curr_plate_index",
+            [](Model &self) { return self.curr_plate_index; },
+            [](Model &self, int v) { self.curr_plate_index = v; })
+        .def("prepare_for_plate", [](Model &self, PlateData *plate_data) {
+            // Mark all instances non-printable, then enable only the target plate's.
+            for (auto *obj : self.objects) {
+                obj->printable = false;
+                for (auto *inst : obj->instances)
+                    inst->printable = false;
+            }
+            for (const auto &oi : plate_data->objects_and_instances) {
+                int obj_idx = oi.first, inst_idx = oi.second;
+                if (obj_idx < (int)self.objects.size()) {
+                    auto *obj = self.objects[obj_idx];
+                    obj->printable = true;
+            if (inst_idx < (int)obj->instances.size())
+                obj->instances[inst_idx]->printable = true;
+                }
+            }
+            self.curr_plate_index = plate_data->plate_index;
+        }, "Filter the model so only the given plate's instances are printable")
+        .def("compute_plate_origin", [](Model &self) {
+            // Find min X among printable instances, use as origin
+            double min_x = std::numeric_limits<double>::max();
+            for (auto *obj : self.objects) {
+                if (!obj->printable) continue;
+                for (auto *inst : obj->instances) {
+                    if (!inst->printable) continue;
+                    Vec3d trans = inst->get_transformation().get_matrix().translation();
+                    if (trans.x() < min_x) min_x = trans.x();
+                }
+            }
+            double PLATE_LENGTH_X = 256.0;
+            double origin_x = (min_x == std::numeric_limits<double>::max()) ? 0.0
+                            : std::floor(min_x / PLATE_LENGTH_X) * PLATE_LENGTH_X;
+            return py::make_tuple(origin_x, 0.0, 0.0);
+        }, "Compute best plate origin from current printable instances' positions")
         .def_static("load_standard_3mf", [](const std::string &path) {
             Model model;
             DynamicPrintConfig config;

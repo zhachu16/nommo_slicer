@@ -1410,8 +1410,32 @@ std::vector<GCode::LayerToPrint> GCode::collect_layers_to_print(const PrintObjec
         // Check that there are extrusions on the very first layer. The case with empty
         // first layer may result in skirt/brim in the air and maybe other issues.
         if (layers_to_print.size() == 1u) {
-            if (!has_extrusions)
+            if (layer_to_print.object_layer) {
+                size_t n_perim = 0, n_fills = 0, n_regions = 0, n_slices = 0;
+                for (auto *reg : layer_to_print.object_layer->regions()) {
+                    ++n_regions;
+                    n_perim += reg->perimeters.entities.size();
+                    n_fills  += reg->fills.entities.size();
+                    n_slices += reg->slices.surfaces.size();
+                }
+                int obj_has_extr = layer_to_print.object_layer ? layer_to_print.object_layer->has_extrusions() : -1;
+                int sup_has_extr = layer_to_print.support_layer ? layer_to_print.support_layer->has_extrusions() : -1;
+                printf("TRACE first_layer(obj=%ld): layers=%zu reg=%zu slices=%zu perim=%zu fills=%zu obj_extr=%d sup_extr=%d has_extr=%d name=%s\n",
+                       object.id().id, object.layers().size(), n_regions, n_slices, n_perim, n_fills,
+                       obj_has_extr, sup_has_extr, (int)has_extrusions,
+                       object.model_object() ? object.model_object()->name.c_str() : "?");
+            }
+            if (!has_extrusions) {
+                std::string obj_name = "id=" + std::to_string(object.id().id);
+                if (const ModelObject *mo = object.model_object())
+                    obj_name = mo->name;
+                printf("TRACE empty_initial_layer: obj=%s(oid=%ld) layers=%zu first_print_z=%.4f first_slice_z=%.4f\n",
+                       obj_name.c_str(), object.id().id,
+                       object.layers().size(),
+                       object.layers().empty() ? -1 : object.layers().front()->print_z,
+                       object.layers().empty() ? -1 : object.layers().front()->slice_z);
                 throw Slic3r::SlicingError(_(L("The following object(s) have empty initial layer and can't be printed. Please cut the bottom or enable supports.")), object.id().id);
+            }
         }
 
         // In case there are extrusions on this layer, check there is a layer to lay it on.

@@ -924,11 +924,21 @@ void PrintObject::generate_support_material()
             }
         }
 
+        {
+            bool hs = this->has_support();
+            bool has_raft = this->has_raft();
+            printf("TRACE gen_support: obj=%ld name=%s has_support=%d has_raft=%d layers=%zu stype=%d\n",
+                   this->id().id, this->model_object() ? this->model_object()->name.c_str() : "?",
+                   (int)hs, (int)has_raft, m_layers.size(), (int)m_config.support_type.value);
+        }
         if ((this->has_support() && m_layers.size() > 1) || (this->has_raft() && !m_layers.empty())) {
             m_print->set_status(50, L("Generating support"));
 
             this->_generate_support_material();
             m_print->throw_if_canceled();
+            printf("TRACE gen_support_done: obj=%ld name=%s sup_layers=%zu stype=%d\n",
+                   this->id().id, this->model_object() ? this->model_object()->name.c_str() : "?",
+                   m_support_layers.size(), (int)m_config.support_type.value);
 
             // When a notification-driven reslice runs (user just clicked
             // "Enable support for [A]"), sibling PrintObject tasks that

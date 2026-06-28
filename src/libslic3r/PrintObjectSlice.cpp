@@ -1122,6 +1122,11 @@ void PrintObject::slice_volumes()
     }
 
     std::vector<float>                   slice_zs      = zs_from_layers(m_layers);
+    if (!slice_zs.empty() && !m_layers.empty()) {
+        printf("TRACE slice_volumes: obj=%.20s layers=%zu first_print_z=%.4f first_slice_z=%.4f\n",
+               model_object()->name.c_str(), m_layers.size(),
+               m_layers.front()->print_z, m_layers.front()->slice_z);
+    }
     std::vector<VolumeSlices> objSliceByVolume;
     if (!slice_zs.empty()) {
         objSliceByVolume = slice_volumes_inner(
@@ -1148,6 +1153,18 @@ void PrintObject::slice_volumes()
             m_layers[layer_id]->regions()[region_id]->slices.append(std::move(by_layer[layer_id]), stInternal);
     }
     region_slices.clear();
+
+    // Debug: check first layer slice status
+    if (!m_layers.empty()) {
+        const Layer *l0 = m_layers.front();
+        bool has_slices = false;
+        for (const LayerRegion *lr : l0->regions())
+            if (lr && !lr->slices.empty()) { has_slices = true; break; }
+        auto t = this->trafo_centered();
+        printf("TRACE after_slice: obj=%.20s layers=%zu first_empty=%d trafo_z=%.4f trafo_m20=%.4f m21=%.4f m22=%.4f\n",
+               model_object()->name.c_str(), m_layers.size(), !has_slices,
+               t.data()[14], t.data()[6], t.data()[7], t.data()[10]);
+    }
 
     BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - removing top empty layers";
     while (! m_layers.empty()) {

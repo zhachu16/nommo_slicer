@@ -115,6 +115,7 @@ def slice_and_enrich(
                 project.config,
                 is_bbl=project.is_bbl_3mf,
                 temp_dir=opts.temp_dir,
+                plate_data=plate,
             )
 
         estimates = extract_plate_estimates(

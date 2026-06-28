@@ -2,6 +2,8 @@
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
 
+#include "libslic3r/Exception.hpp"
+
 namespace py = pybind11;
 
 // Forward declarations for binding init functions
@@ -28,9 +30,14 @@ PYBIND11_MODULE(_nommo_native, m) {
 
     // Register exception
     static py::exception<NommoNativeError> exc(m, "NommoNativeError");
-    py::register_local_exception_translator([](std::exception_ptr p) {
+    py::register_exception_translator([](std::exception_ptr p) {
         try {
             if (p) std::rethrow_exception(p);
+        } catch (const Slic3r::SlicingErrors &e) {
+            std::string msg = "SlicingErrors:";
+            for (const auto &sub : e.errors_)
+                msg += "\n  [obj=" + std::to_string(sub.objectId()) + "] " + sub.what();
+            PyErr_SetString(PyExc_RuntimeError, msg.c_str());
         } catch (const NommoNativeError &e) {
             PyErr_SetString(exc.ptr(), e.what());
         }

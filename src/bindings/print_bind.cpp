@@ -71,6 +71,14 @@ void init_print_bind(py::module &m) {
         }, "Apply model and an explicit print config to the print job")
         .def("set_bbl_printer", &Print::set_BBL_Printer, "Mark this print job as targeting a Bambu Lab printer")
         .def("is_bbl_printer", &Print::is_BBL_Printer, "Return whether this print job targets a Bambu Lab printer")
+        .def("set_plate_index", [](Print &self, int idx) { self.set_plate_index(idx); }, "Set the active plate index for wipe tower and GCode positioning")
+        .def("set_plate_origin", [](Print &self, double x, double y, double z) {
+            self.set_plate_origin(Vec3d(x, y, z));
+        }, "Set the plate origin (shifts coordinates from global 3MF space to plate-local space)")
+        .def("get_plate_origin", [](Print &self) {
+            Vec3d o = self.get_plate_origin();
+            return py::make_tuple(o.x(), o.y(), o.z());
+        }, "Get the plate origin")
         .def("process", [](Print &self) {
             self.process();
         }, "Run the full slicing pipeline")

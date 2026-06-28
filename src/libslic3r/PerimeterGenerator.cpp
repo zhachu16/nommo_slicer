@@ -664,6 +664,9 @@ static ExtrusionEntityCollection traverse_extrusions(const PerimeterGenerator& p
         // Apply fuzzy skin if it is enabled for at least some part of the ExtrusionLine.
         *extrusion = apply_fuzzy_skin(*extrusion, *(perimeter_generator.config), *(perimeter_generator.perimeter_regions), perimeter_generator.layer_id,
                                      pg_extrusion.extrusion->inset_idx, !pg_extrusion.extrusion->is_closed || pg_extrusion.is_contour, perimeter_generator.slice_z);
+        // apply_fuzzy_skin can return an empty line in edge cases; skip to avoid null deref in to_thick_polyline.
+        if (extrusion->empty())
+            continue;
 
         ExtrusionPaths paths;
         // detect overhanging/bridging perimeters

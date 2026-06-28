@@ -60,12 +60,21 @@ class SliceRunner:
         config,
         is_bbl: bool = False,
         temp_dir: Path | None = None,
+        plate_data=None,
     ) -> dict:
         """Slice a single plate. Returns dict with time, filament, and warnings."""
         if self.progress_callback:
             self.progress_callback("slicing_plate", {"plate_index": plate_index})
 
+        if plate_data is not None:
+            model.prepare_for_plate(plate_data)
+
         print_job = native_print.Print()
+        print_job.set_plate_index(plate_index)
+        # Shift from global 3MF coordinates to plate-local coordinates
+        if hasattr(model, "compute_plate_origin"):
+            ox, oy, oz = model.compute_plate_origin()
+            print_job.set_plate_origin(ox, oy, oz)
         print_job.apply_config(model, config)
         print_job.set_bbl_printer(bool(is_bbl))
         print_job.process()
