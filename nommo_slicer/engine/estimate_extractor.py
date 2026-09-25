@@ -23,7 +23,8 @@ def extract_plate_estimates(
     material_types = set()
     grams_by_material: Dict[str, float] = {}
     for fi in filament_info:
-        mat = normalize_material_type(fi.type, fi.name)
+        # The FilamentInfo binding exposes no `name`; `type` is the primary key anyway.
+        mat = normalize_material_type(fi.type, getattr(fi, "name", ""))
         material_types.add(mat)
         grams_by_material[mat] = grams_by_material.get(mat, 0.0) + filament_grams / max(len(filament_info), 1)
 

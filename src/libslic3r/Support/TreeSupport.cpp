@@ -627,12 +627,6 @@ TreeSupport::TreeSupport(PrintObject& object, const SlicingParameters &slicing_p
     Vec3d plate_offset       = m_object->print()->get_plate_origin();
     // align with the centered object in current plate (may not be the 1st plate, so need to add the plate offset)
     m_machine_border.translate(Point(scale_(plate_offset(0)), scale_(plate_offset(1))) - m_object->instances().front().shift);
-    printf("TRACE machine_border_init: obj=%ld shift=(%d,%d) plate_offset=(%.1f,%.1f) border_bb=[%d,%d]x[%d,%d]\n",
-           m_object->id().id,
-           m_object->instances().front().shift.x(), m_object->instances().front().shift.y(),
-           plate_offset(0), plate_offset(1),
-           m_machine_border.contour.bounding_box().min.x(), m_machine_border.contour.bounding_box().max.x(),
-           m_machine_border.contour.bounding_box().min.y(), m_machine_border.contour.bounding_box().max.y());
     m_ts_data      = m_object->alloc_tree_support_preview_cache();
     top_z_distance                            = m_object_config->support_top_z_distance.value;
     if (top_z_distance > EPSILON)
@@ -1289,9 +1283,6 @@ void TreeSupport::detect_overhangs(bool check_support_necessity/* = false*/)
     }
 
     BOOST_LOG_TRIVIAL(info) << "Tree support overhang detection done. " << layers_with_overhangs << " layers with overhangs. nEnforced=" << layers_with_enforcers;
-    printf("TRACE overhang_detection: obj=%ld name=%s layers_with_overhangs=%d m_highest=%zu total_layers=%zu\n",
-           m_object->id().id, m_object->model_object() ? m_object->model_object()->name.c_str() : "?",
-           layers_with_overhangs, m_highest_overhang_layer, m_object->layers().size());
 
 #ifdef SUPPORT_TREE_DEBUG_TO_SVG
     for (const Layer* layer : m_object->layers()) {
@@ -1983,16 +1974,9 @@ void TreeSupport::move_bounds_to_contact_nodes(std::vector<TreeSupport3D::Suppor
 
 void TreeSupport::generate()
 {
-    if (!is_tree(m_object_config->support_type.value)) {
-        printf("TRACE tree_support: obj=%ld name=%s NOT_TREE stype=%d\n",
-               m_object->id().id, m_object->model_object() ? m_object->model_object()->name.c_str() : "?",
-               (int)m_object_config->support_type.value);
-        return;
-    }
+    if (!is_tree(m_object_config->support_type.value)) return;
 
     if (m_support_params.support_style == smsTreeOrganic) {
-        printf("TRACE tree_support: obj=%ld name=%s ORGANIC\n",
-               m_object->id().id, m_object->model_object() ? m_object->model_object()->name.c_str() : "?");
         generate_tree_support_3D(*m_object, this, this->throw_on_cancel);
         return;
     }
@@ -4207,12 +4191,6 @@ TreeSupportData::TreeSupportData(const PrintObject &object, coordf_t xy_distance
     Vec3d plate_offset       = object.print()->get_plate_origin();
     // align with the centered object in current plate (may not be the 1st plate, so need to add the plate offset)
     m_machine_border.translate(Point(scale_(plate_offset(0)), scale_(plate_offset(1))) - object.instances().front().shift);
-    printf("TRACE machine_border_3d: obj=%ld shift=(%d,%d) plate_offset=(%.1f,%.1f) border_bb=[%d,%d]x[%d,%d]\n",
-           object.id().id,
-           object.instances().front().shift.x(), object.instances().front().shift.y(),
-           plate_offset(0), plate_offset(1),
-           m_machine_border.contour.bounding_box().min.x(), m_machine_border.contour.bounding_box().max.x(),
-           m_machine_border.contour.bounding_box().min.y(), m_machine_border.contour.bounding_box().max.y());
 
     if (!m_machine_border.empty()) {
         Polygon hole(m_machine_border.contour);

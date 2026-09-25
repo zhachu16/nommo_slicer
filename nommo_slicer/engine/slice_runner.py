@@ -14,10 +14,12 @@ ProgressCallback = Callable[[str, dict], None]
 
 STAGES = [
     "validating",
+    "transforming",
     "loading_project",
     "resolving_profiles",
     "slicing_plate",
     "calculating_estimates",
+    "fingerprinting",
     "writing_metadata",
     "complete",
 ]
@@ -104,15 +106,16 @@ class SliceRunner:
 
     def process_existing_gcode(
         self,
-        gcode_text: str,
+        plate_index: int,
+        gcode_path: Path,
         config,
         is_bbl: bool = False,
     ) -> dict:
-        """Parse existing GCode and extract time/filament estimates (fast path)."""
+        """Parse a plate's embedded GCode file and extract time/filament estimates (fast path)."""
         if self.progress_callback:
-            self.progress_callback("calculating_estimates", {})
+            self.progress_callback("calculating_estimates", {"plate_index": plate_index})
 
-        result = _native.gcode.estimate_from_gcode(gcode_text)
+        result = _native.gcode.estimate_from_gcode_file(str(gcode_path))
 
         total_time = result.time_by_mode(_native.gcode.ETimeMode.NORMAL)
         prepare_time = result.prepare_time_by_mode(_native.gcode.ETimeMode.NORMAL)
@@ -121,14 +124,35 @@ class SliceRunner:
             if is_bbl
             else total_time
         )
+        volumes = dict(result.total_volumes_per_extruder)
+        weight, warnings = _weight_from_volumes(volumes, config)
         return {
-            "plate_index": -1,
+            "plate_index": plate_index,
             "print_time_seconds": print_time,
             "print_time_hours": print_time / 3600.0,
             "total_time_seconds": total_time,
             "prepare_time_seconds": prepare_time,
-            "filament_weight_g": 0.0,  # derived from volume
-            "filament_volume_mm3": sum(result.total_volumes_per_extruder.values()),
-            "warnings": [],
+            "filament_weight_g": weight,
+            "filament_volume_mm3": sum(volumes.values()),
+            "warnings": warnings,
             "print_statistics": result,
         }
+
+
+def _weight_from_volumes(volumes: dict, config) -> tuple[float, list]:
+    """Grams from per-filament extruded volume (mm^3) and the project's filament_density (g/cm^3)."""
+    try:
+        densities = list(config.get_floats("filament_density"))
+    except Exception:
+        densities = []
+    grams = 0.0
+    missing = []
+    for filament_idx, volume_mm3 in volumes.items():
+        density = densities[filament_idx] if 0 <= filament_idx < len(densities) else 0.0
+        if density <= 0:
+            missing.append(filament_idx)
+        grams += volume_mm3 / 1000.0 * density
+    warnings = []
+    if missing and any(volumes[i] > 0 for i in missing):
+        warnings.append(f"filament_density missing for filament(s) {missing}; weight excludes them")
+    return grams, warnings

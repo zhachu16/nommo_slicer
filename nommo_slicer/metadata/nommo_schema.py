@@ -22,7 +22,7 @@ class PlateInfo:
 class NommoInfo:
     schema_version: str = "1"
     slicer: str = "NOMMO-Bambu"
-    slicer_version: str = "0.1.0"
+    slicer_version: str = "0.2.1"
     source_3mf_sha256: str = ""
     printer_profile: str = ""
     printer_model: str = ""

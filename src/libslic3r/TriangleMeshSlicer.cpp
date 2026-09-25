@@ -1857,18 +1857,6 @@ static std::vector<stl_vertex> transform_mesh_vertices_for_slicing(const indexed
         auto tf = t.cast<float>();
         for (stl_vertex &v : out)
             v = tf * v;
-        float z_min = std::numeric_limits<float>::max(), z_max = std::numeric_limits<float>::lowest();
-        float orig_z_min = std::numeric_limits<float>::max(), orig_z_max = std::numeric_limits<float>::lowest();
-        for (auto &v : mesh.vertices) { orig_z_min = std::min(orig_z_min, v.z()); orig_z_max = std::max(orig_z_max, v.z()); }
-        for (auto &v : out) { z_min = std::min(z_min, v.z()); z_max = std::max(z_max, v.z()); }
-        auto t2 = trafo; t2.prescale(Vec3d(1./SCALING_FACTOR, 1./SCALING_FACTOR, 1.));
-        auto tf2 = t2.cast<float>();
-        stl_vertex test_v = tf2 * stl_vertex(0, 0, 0);
-        stl_vertex test_v2 = tf2 * stl_vertex(orig_z_min < 0 ? 0 : 0, 0, orig_z_min);
-        printf("TRACE v4s: oz=[%.2f,%.2f] zr=[%.2f,%.2f] tz=%.4f test(o)=>(%.2f,%.2f,%.2f) test(bot)=>(%.2f,%.2f,%.2f)\n",
-               orig_z_min, orig_z_max, z_min, z_max, trafo.data()[14],
-               test_v.x(), test_v.y(), test_v.z(),
-               test_v2.x(), test_v2.y(), test_v2.z());
     }
     return out;
 }

@@ -4,10 +4,13 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "nommo_slicer"
-version = "0.1.2"
+version = "0.2.1"
 description = "NOMMO Slicing Library - Standalone slicing from Bambu Studio"
 requires-python = ">=3.10"
 dependencies = []
+
+[project.optional-dependencies]
+fingerprint = ["nommo_fingerprint>=0.1.0"]
 
 [project.scripts]
 nommo-slicer = "nommo_slicer.cli.main:main"

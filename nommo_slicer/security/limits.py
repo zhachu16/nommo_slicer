@@ -9,6 +9,7 @@ class LimitsConfig:
     max_compressed_ratio: float = 250.0
     max_threads: int = 32
     max_execution_seconds: int = 3600
+    max_transform_seconds: int = 600
 
 
 default_limits = LimitsConfig()

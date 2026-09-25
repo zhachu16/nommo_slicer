@@ -9,8 +9,10 @@
 #include "libslic3r/FuzzySkin.hpp"
 
 // Stub implementations for FuzzySkin.
-// Full FuzzySkin.cpp is excluded (non-essential for MVP).
-// Referenced by PerimeterGenerator.cpp for fuzzy skin perimeter feature.
+// Full FuzzySkin.cpp is excluded (it needs libnoise). Referenced by PerimeterGenerator.cpp for the
+// fuzzy skin perimeter feature. The stubs must be the identity: PerimeterGenerator replaces every
+// perimeter with the return value, so anything else changes or drops walls. With fuzzy skin
+// enabled in a project, walls are therefore printed smooth (the Python layer warns about this).
 
 namespace Slic3r {
 
@@ -27,7 +29,7 @@ Polygon apply_fuzzy_skin(
 }
 
 Arachne::ExtrusionLine apply_fuzzy_skin(
-    const Arachne::ExtrusionLine & /*extrusion*/,
+    const Arachne::ExtrusionLine &extrusion,
     const PrintRegionConfig & /*base_config*/,
     const PerimeterRegions & /*perimeter_regions*/,
     size_t /*layer_idx*/,
@@ -35,7 +37,8 @@ Arachne::ExtrusionLine apply_fuzzy_skin(
     bool /*is_contour*/,
     coordf_t /*slice_z*/)
 {
-    return Arachne::ExtrusionLine{};
+    // Returning an empty line here used to drop every Arachne wall from the G-code.
+    return extrusion;
 }
 
 } // namespace Slic3r

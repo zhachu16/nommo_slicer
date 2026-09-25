@@ -16,6 +16,12 @@ EXIT_CODES = {
     "SLICE_FAILED": 30,
     "RESOURCE_LIMIT_EXCEEDED": 40,
     "OUTPUT_WRITE_FAILED": 50,
+    "INVALID_CONFIG": 60,
+    "TRANSFORM_FAILED": 61,
+    "INVALID_FINGERPRINT_REQUEST": 70,
+    "FINGERPRINT_ALREADY_EXISTS": 71,
+    "FINGERPRINT_FAILED": 72,
+    "FINGERPRINT_UNAVAILABLE": 73,
 }
 
 
@@ -42,6 +48,10 @@ def build_parser() -> argparse.ArgumentParser:
     slice_p.add_argument("--temp-dir", type=Path, default=None, help="Temporary directory")
     slice_p.add_argument("--replace-existing-metadata", action="store_true", help="Replace existing nommo_info.json")
     slice_p.add_argument("--json", action="store_true", help="Output JSON (machine-readable)")
+    slice_p.add_argument("--config", type=Path, default=None, help="Project config.json")
+    slice_p.add_argument("--transform", type=Path, default=None, help="Creator transform.py (run in Blender)")
+    slice_p.add_argument("--fingerprint", type=Path, default=None, help="fingerprint.json request")
+    slice_p.add_argument("--blender", type=Path, default=None, help="Blender executable (default: $NOMMO_BLENDER or PATH)")
 
     return p
 
@@ -68,38 +78,57 @@ def _cmd_slice(args):
         temp_dir=args.temp_dir,
         replace_existing_metadata=args.replace_existing_metadata,
         progress_callback=_progress_printer if not args.json else None,
+        config=args.config,
+        transform_script=args.transform,
+        fingerprint=args.fingerprint,
+        blender_path=args.blender,
     )
 
     try:
         result = slice_and_enrich(args.input_3mf, args.output, opts)
     except NommoSlicerError as e:
         print(f"Error [{e.code}]: {e.message}", file=sys.stderr)
+        if e.details.get("traceback"):
+            print(e.details["traceback"], file=sys.stderr)
+        elif e.details.get("stderr"):
+            print(e.details["stderr"], file=sys.stderr)
         sys.exit(EXIT_CODES.get(e.code, 1))
     except Exception as e:
         print(f"Unexpected error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    print_info = result["print_info"]
+    total_seconds = sum(p["expected_print_seconds"] for p in print_info["plates"])
+    total_filament = sum(p["filament_grams_total"] for p in print_info["plates"])
+
     if args.json:
         out = {
             "status": "complete",
-            "output_path": str(result.output_path),
-            "plate_count": result.plate_count,
-            "total_print_seconds": result.total_print_seconds,
-            "total_filament_grams": result.total_filament_grams,
-            "total_nommo_units": result.total_nommo_units,
-            "warnings": result.warnings,
+            "output_path": str(result["output_path"]),
+            "plate_count": print_info["plate_count"],
+            "total_print_seconds": total_seconds,
+            "total_filament_grams": total_filament,
+            "total_nommo_units": print_info["total_nommo_units"],
+            "warnings": print_info["warnings"],
+            "transform_function": result["transform_function"],
+            "fingerprint": result["fingerprint"],
         }
         print(json.dumps(out, indent=2))
     else:
-        hours = int(result.total_print_seconds // 3600)
-        minutes = int((result.total_print_seconds % 3600) // 60)
-        seconds = int(result.total_print_seconds % 60)
+        hours = int(total_seconds // 3600)
+        minutes = int((total_seconds % 3600) // 60)
+        seconds = int(total_seconds % 60)
         print(f"Processed: {args.input_3mf}")
-        print(f"Output: {result.output_path}")
-        print(f"Plates: {result.plate_count}")
+        print(f"Output: {result['output_path']}")
+        print(f"Plates: {print_info['plate_count']}")
         print(f"Estimated time: {hours:02d}:{minutes:02d}:{seconds:02d}")
-        print(f"Filament: {result.total_filament_grams:.1f} g")
-        print(f"NOMMO units: {result.total_nommo_units}")
+        print(f"Filament: {total_filament:.1f} g")
+        print(f"NOMMO units: {print_info['total_nommo_units']}")
+        if result["transform_function"]:
+            print(f"Transform: {result['transform_function']}")
+        if result["fingerprint"]:
+            registered = "eas_attestation_uid" in result["fingerprint"]
+            print(f"Fingerprint: {'registered' if registered else 'local'}")
 
 
 if __name__ == "__main__":

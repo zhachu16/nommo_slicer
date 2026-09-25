@@ -4,6 +4,8 @@
 
 #include <algorithm>
 
+#include <boost/filesystem.hpp>
+#include <boost/nowide/fstream.hpp>
 #include "libslic3r/GCode/GCodeProcessor.hpp"
 #include "libslic3r/GCodeReader.hpp"
 #include "libslic3r/Extruder.hpp"
@@ -11,6 +13,29 @@
 
 namespace py = pybind11;
 using namespace Slic3r;
+
+// GCodeProcessor only reads the embedded printer config (machine limits, etc.) through
+// process_file(); the initialize()/process_buffer()/finalize(true) path post-processes a file
+// named by initialize() and crashes on "". So in-memory G-code goes through a temp file.
+static PrintEstimatedStatistics estimate_from_file(const std::string &path) {
+    GCodeProcessor processor;
+    processor.process_file(path);
+    return processor.get_result().print_statistics;
+}
+
+template<typename Fn>
+static auto with_temp_gcode(const std::string &gcode_text, Fn &&fn) {
+    auto path = boost::filesystem::temp_directory_path() /
+        boost::filesystem::unique_path("nommo_gcode_%%%%%%%%%%%%%%%%.gcode");
+    {
+        boost::nowide::ofstream out(path.string(), std::ios::binary);
+        if (!out)
+            throw std::runtime_error("Cannot write temporary G-code file");
+        out.write(gcode_text.data(), static_cast<std::streamsize>(gcode_text.size()));
+    }
+    struct Cleanup { boost::filesystem::path p; ~Cleanup() { boost::system::error_code ec; boost::filesystem::remove(p, ec); } } cleanup{path};
+    return fn(path.string());
+}
 
 void init_gcode_bind(py::module &m) {
     auto gcode_mod = m.def_submodule("gcode", "GCode analysis and estimation");
@@ -73,9 +98,7 @@ void init_gcode_bind(py::module &m) {
     py::class_<GCodeProcessor>(gcode_mod, "GCodeProcessor")
         .def(py::init<>())
         .def("process", [](GCodeProcessor &self, const std::string &gcode_str) {
-            self.initialize("");
-            self.process_buffer(gcode_str);
-            self.finalize(true);
+            with_temp_gcode(gcode_str, [&self](const std::string &path) { self.process_file(path); return 0; });
         }, "Process G-code string, extracting time and filament estimates.")
         .def("process_file", [](GCodeProcessor &self, const std::string &gcode_path) {
             self.process_file(gcode_path);
@@ -86,11 +109,13 @@ void init_gcode_bind(py::module &m) {
 
     // ── Free function: extract time/filament from existing GCode text ────
     gcode_mod.def("estimate_from_gcode", [](const std::string &gcode_text) -> PrintEstimatedStatistics {
-        GCodeProcessor processor;
-        processor.initialize("");
-        processor.process_buffer(gcode_text);
-        processor.finalize(true);
-        return processor.get_result().print_statistics;
+        return with_temp_gcode(gcode_text, estimate_from_file);
     }, "Parse existing GCode text and extract print time and filament estimates");
+
+    gcode_mod.def("estimate_from_gcode_file", [](const std::string &path) -> PrintEstimatedStatistics {
+        if (!boost::filesystem::exists(path))
+            throw std::runtime_error("G-code file not found: " + path);
+        return estimate_from_file(path);
+    }, "Parse a G-code file and extract print time and filament estimates");
 
 }

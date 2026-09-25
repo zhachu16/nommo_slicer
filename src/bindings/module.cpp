@@ -2,7 +2,12 @@
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
 
+#include <iostream>
+
+#include <boost/log/utility/setup/console.hpp>
+
 #include "libslic3r/Exception.hpp"
+#include "libslic3r/Utils.hpp"
 
 namespace py = pybind11;
 
@@ -27,6 +32,11 @@ private:
 
 PYBIND11_MODULE(_nommo_native, m) {
     m.doc() = "NOMMO Slicing Library - Native C++ bindings";
+
+    // stdout belongs to the host process (e.g. `nommo-slicer --json`). Adding an explicit
+    // sink replaces boost.log's default sink, which writes to stdout; errors only.
+    boost::log::add_console_log(std::clog);
+    Slic3r::set_logging_level(1);
 
     // Register exception
     static py::exception<NommoNativeError> exc(m, "NommoNativeError");
